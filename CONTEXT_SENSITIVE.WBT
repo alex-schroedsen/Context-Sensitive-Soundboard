@@ -1,0 +1,439 @@
+;Written by Alex Schroedsen
+
+#DefineFunction getTheKey(count)
+key=""
+Select count
+      Case 9
+         key = "Tab"
+         Break
+      Case 13
+         key = "Enter"
+         Break
+      Case 16
+         key = "Shift"
+         Break
+      Case 17
+         key = "Ctrl"
+         Break
+      Case 18
+         key = "Alt"
+         Break
+      Case 20
+         key = "CapsLock"
+         Break
+      Case 27
+         key = "Escape"
+         Break
+      Case 32
+         key = "Space"
+         Break
+      Case 33
+         key = "PgUp"
+         Break
+      Case 34
+         key = "PgDn"
+         Break
+      Case 35
+         key = "End"
+         Break
+      Case 36
+         key = "Home"
+         Break
+      Case 37
+         key = "Left arrow"
+         Break
+      Case 38
+         key = "Up arrow"
+         Break
+      Case 39
+         key = "Right arrow"
+         Break
+      Case 40
+         key = "Down arrow"
+         Break
+      Case 45
+         key = "Insert"
+         Break
+      Case 46
+         key = "Delete"
+         Break
+      Case 187
+         key = "="
+         Break
+      Case 189
+         key = "-"
+         Break
+
+      Case 112
+         key = "F1"
+         Break
+      Case 113
+         key = "F2"
+         Break
+      Case 114
+         key = "F3"
+         Break
+      Case 115
+         key = "F4"
+         Break
+      Case 116
+         key = "F5"
+         Break
+      Case 117
+         key = "F6"
+         Break
+      Case 118
+         key = "F7"
+         Break
+      Case 119
+         key = "F8"
+         Break
+      Case 120
+         key = "F9"
+         Break
+      Case 121
+         key = "F10"
+         Break
+      Case 122
+         key = "F11"
+         Break
+      Case 123
+         key = "F12"
+         Break
+EndSelect
+
+If key == "" Then key = Num2Char(count)
+
+     RETURN key
+
+   #EndFunction
+
+#definefunction GetKeyboardState(buf)
+   sDLLName = StrCat(DirWindows(1), "user32.dll")
+   DLLCall(sDLLName, long:"GetKeyboardState", lpbinary:buf)
+   BinaryEodSet(buf, 256) 
+   return buf
+#endfunction
+
+
+SELF=IntControl(1004, 0, 0, 0, 0)         ; Get fully qualified name of the current WB program
+SELFPATH=itemRemove(-1,SELF,"\")
+
+
+TEMP=Environment("TEMP") ;grabs the temp directory
+While strSub(TEMP,strLen(TEMP),1) == "\" ;Removes '\' backslashes
+TEMP=strSub(TEMP,0,strLen(TEMP)-1)
+EndWhile
+
+IntControl(1007,1,0,"CONTEXT SENSITIVE - CLICK TO CLOSE",0)         ; Add/remove/check tray icon
+
+
+config=strCat(SELFPATH,"\CONTEXT_SENSTIVE_config.cfg")
+soundlist=strCat(SELFPATH,"\CONTEXT_SENSTIVE_soundlist.cfg")
+;if fileExist(config) == @FALSE then 
+
+arch=winMetrics(-2)
+
+Select arch
+   case 2 ;win32
+	  XIPH=fileExist(strCat(environment("ProgramFiles"),"\Xiph.Org\Ogg Codecs\uninst.exe"))
+     break
+   case 3 ;win64
+	  XIPH=fileExist(strCat(environment("ProgramFiles(x86)"),"\Xiph.Org\Ogg Codecs\uninst.exe"))
+     ;XIPH=regExistKey(@REGMACHINE,"SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Ogg Codecs",64)
+     break
+EndSelect
+
+Select XIPH
+   case @TRUE
+	  filetypes="WAV/MP3/OGG/FLAC|*.wav;*.mp3;*.ogg;*.flac"
+     break
+   case @FALSE
+     filetypes="WAV/MP3|*.wav;*.mp3"
+	  if IniReadPvt("CONTEXT_SENSITIVE_config","XIPH_unwanted","(NONE)",config) == @TRUE then break
+	  Switch askYesNo("Context Sensitive - Install XIPH","Xiph.org codecs adds OGG Vorbis and FLAC audio codec support. Would you like to install Xiph codecs?")
+	     case @NO
+	       IniWritePvt("CONTEXT_SENSITIVE_config","XIPH_unwanted",1,config)
+	       break
+	     case @YES
+			 xiphInst=strCat(TEMP,"\oggcodecs_0.83.17220-win32.exe")
+			 if fileExist(xiphInst) == @FALSE then extractAttachedFile("oggcodecs_0.83.17220-win32.exe",xiphInst)
+			 runShell(xiphInst,"",TEMP, @NORMAL, @WAIT)
+	       break
+	  EndSwitch
+
+     break
+EndSelect
+
+if IniReadPvt("CONTEXT_SENSITIVE_config","toggledelay","(NONE)",config) == "(NONE)" THEN IniWritePvt("CONTEXT_SENSITIVE_config","toggledelay",1,config)
+toggledelay=IniReadPvt("CONTEXT_SENSITIVE_config","toggledelay","(NONE)",config)
+
+if display(3.0,"Context Sensitive","Press ENTER to configure keys.") == @TRUE THEN goto config
+
+if fileExist(strCat(TEMP,"\CONTEXT_SENSITIVE.WBT")) == @FALSE THEN extractAttachedFile("CONTEXT_SENSITIVE.WBT",strCat(TEMP,"\CONTEXT_SENSITIVE.WBT"))
+
+
+;==============================
+;start
+;==============================
+
+
+buf1 = binaryalloc(256)
+
+iniSections=IniItemizePvt("", soundlist )         ; Lists keywords or sections in a private INI file.
+;iniSections=itemRemove(itemLocate("CONTEXT_SENSITIVE_config",iniSections,@TAB),iniSections,@TAB)
+musicList=""
+
+For   count = 0 to 255 ;loads sounds at start.
+	x=binarypeek(buf1,count)
+	key=getTheKey(count)
+	section=strCat("CONTEXT_SENSITIVE_config_",key,"_key")
+	if itemLocate(section, iniSections, @TAB ) == 0 then Next;skip nonexistant entries
+	mpegname=iniReadPvt(  section, "SoundFile", "(NONE)", soundlist )
+	mpegname=fileNameShort(mpegname)
+	PlayMedia(strCat("open mpegvideo!%mpegName% alias music",count));assigns a unique handle for each sound based on count number.
+	toggle%count%=iniReadPvt(  section, "Toggle", "(NONE)", soundlist )
+	resume%count%=iniReadPvt(  section, "Resume", "(NONE)", soundlist )
+	playing%count%=0
+	musicList=itemInsert(count,-1,musicList,@TAB)
+drop(x,key,section,mpegname)
+Next
+drop(count)
+
+
+While 1
+
+timeDelay(0.1)
+GetKeyboardState(buf1)
+;toggledelay=1.0
+itemTally=itemCount(musicList, @TAB )
+
+For   index = 1 to itemTally
+count=itemExtract(index, musicList, @TAB )
+x=binarypeek(buf1,count)
+key=getTheKey(count)
+
+Select @TRUE
+   case x<>0 && x<>1 ;if key is down
+     Switch @TRUE
+	     case toggle%count%==1 && resume%count%==1 && playing%count%==0
+	       playing%count%=1
+			 IF PlayMedia("status music%count% mode") != "playing" THEN PlayMedia("play music%count% repeat")
+			 timedelay(toggledelay)
+	       break
+	     case toggle%count%==1 && resume%count%==1 && playing%count%==1
+	       playing%count%=0
+			 PlayMedia("pause music%count%")
+			 timedelay(toggledelay)
+	       break
+	     case toggle%count%==0 && resume%count%==0 
+	       IF PlayMedia("status music%count% mode") != "playing" THEN PlayMedia("play music%count% repeat from 1")
+	       break
+	     case toggle%count%==1 && resume%count%==0 && playing%count%==0
+	       playing%count%=1
+	       IF PlayMedia("status music%count% mode") != "playing" THEN PlayMedia("play music%count% repeat from 1")
+			 timedelay(toggledelay)
+	       break
+	     case toggle%count%==1 && resume%count%==0 && playing%count%==1
+	       playing%count%=0
+	       PlayMedia("pause music%count%")
+			 timedelay(toggledelay)
+	       break
+	     case toggle%count%==0 && resume%count%==1
+	       IF PlayMedia("status music%count% mode") != "playing" THEN PlayMedia("play music%count% repeat")
+	       break
+	  EndSwitch
+     break
+   case x==0 || x==1 ;if key is up
+     Switch @TRUE
+	     case toggle%count%==1 && resume%count%==1
+	       ;nothing needs to happen
+	       break
+	     case toggle%count%==0 && resume%count%==0
+	       PlayMedia("pause music%count%")
+	       break
+	     case toggle%count%==1 && resume%count%==0
+	       ;nothing needs to happen
+	       break
+	     case toggle%count%==0 && resume%count%==1
+	       PlayMedia("pause music%count%")
+	       break
+	  EndSwitch
+     break
+EndSelect
+drop(x,key,count)
+
+Next
+drop(index)
+IF IntControl(1007,0,0,0,0) == 1 THEN IF askYesNo("CONTEXT SENSITIVE - TERMINATE?",strCat("Written by Alex Schroedsen. Thanks for using my program!",@CRLF,@CRLF,"TERMINATE?")) == @YES THEN Break
+
+
+EndWhile
+
+IntControl(1007,2,0,0,0)
+binaryfree(buf1)
+;binaryfree(buf2)
+Exit
+
+:config
+:again
+;==============================
+;start
+;==============================
+;DebugTrace(@ON , 'c:\trace.txt')
+BoxOpen("","(waiting 1 second)")
+
+timedelay(1)
+boxtext("Press any key.")
+buf1 = BinaryAlloc(256)
+buf2 = BinaryAlloc(256)
+
+before = GetKeyboardState(buf1)
+after  = GetKeyboardState(buf2)
+While BinaryCompare(before, 0, after, 0, 256)==@TRUE
+   after = GetKeyboardState(buf2)
+EndWhile
+GoSub get_the_key
+
+BinaryFree(buf1)
+BinaryFree(buf2)
+if askyesno("","Set another key assignment?") == @NO then exit
+drop(x,key,count,before,after)
+goto again
+;==============================
+Exit
+;==============================
+
+
+:get_the_key
+key = ""
+For count = 0 To 255
+   x=BinaryPeek(buf2,count)
+   If x<>0 && x<>1 Then Break
+Next
+
+Select count
+      Case 9
+         key = "Tab"
+         Break
+      Case 13
+         key = "Enter"
+         Break
+      Case 16
+         key = "Shift"
+         Break
+      Case 17
+         key = "Ctrl"
+         Break
+      Case 18
+         key = "Alt"
+         Break
+      Case 20
+         key = "CapsLock"
+         Break
+      Case 27
+         key = "Escape"
+         Break
+      Case 32
+         key = "Space"
+         Break
+      Case 33
+         key = "PgUp"
+         Break
+      Case 34
+         key = "PgDn"
+         Break
+      Case 35
+         key = "End"
+         Break
+      Case 36
+         key = "Home"
+         Break
+      Case 37
+         key = "Left arrow"
+         Break
+      Case 38
+         key = "Up arrow"
+         Break
+      Case 39
+         key = "Right arrow"
+         Break
+      Case 40
+         key = "Down arrow"
+         Break
+      Case 45
+         key = "Insert"
+         Break
+      Case 46
+         key = "Delete"
+         Break
+      Case 187
+         key = "="
+         Break
+      Case 189
+         key = "-"
+         Break
+
+      Case 112
+         key = "F1"
+         Break
+      Case 113
+         key = "F2"
+         Break
+      Case 114
+         key = "F3"
+         Break
+      Case 115
+         key = "F4"
+         Break
+      Case 116
+         key = "F5"
+         Break
+      Case 117
+         key = "F6"
+         Break
+      Case 118
+         key = "F7"
+         Break
+      Case 119
+         key = "F8"
+         Break
+      Case 120
+         key = "F9"
+         Break
+      Case 121
+         key = "F10"
+         Break
+      Case 122
+         key = "F11"
+         Break
+      Case 123
+         key = "F12"
+         Break
+EndSelect
+
+If key == "" Then key = Num2Char(count)
+
+Select askYesNo("Context Sensitive",strCat("Configure ",key," key?"))
+   case @YES
+     newSoundFile=askFilename(strCat("Context Sensitive - Select audio  file for ",key," key"),SELFPATH, filetypes,"",1 )
+	  newSoundFileResume=askYesNo(strCat("Context Sensitive - Resume mode ",key," key"),"Would you like the audio file to resume on key press?")
+	  newSoundFileToggle=askYesNo(strCat("Context Sensitive - Toggle mode ",key," key"),"Would you like the audio file to toggle playback on key press?")
+;	  newSoundFileOverlap=askYesNo(strCat("Context Sensitive - Overlap mode ",key," key"),"Would you like the audio file to overlap previous instances of playback on key press?")
+	  newSoundFileSection=strCat("CONTEXT_SENSITIVE_config_",key,"_key")
+	  iniWritePvt(newSoundFileSection,"SoundFile",newSoundFile, soundlist )
+	  iniWritePvt(newSoundFileSection,"Resume",newSoundFileToggle, soundlist )
+	  iniWritePvt(newSoundFileSection,"Toggle",newSoundFileToggle, soundlist )
+;	  iniWritePvt(newSoundFileSection,"Overlap",newSoundFileToggle, config )
+	  ;write some error handling if the file cannot be written.
+     break
+   case @NO
+     goto again
+     break
+EndSelect
+
+
+
+
+;Message(count, key)
+Return
