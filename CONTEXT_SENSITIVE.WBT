@@ -297,7 +297,7 @@ GoSub get_the_key
 
 BinaryFree(buf1)
 BinaryFree(buf2)
-if askyesno("","Set another key assignment?") == @NO then exit
+if askyesno("","Set another key assignment?") == @NO then if message( "CONTEXT SENSITIVE", strCat("Written by Alex Schroedsen. Thanks for using my program!",@CRLF,@CRLF,"Program will now exit. Run again to use your configuration.")) then exit
 drop(x,key,count,before,after)
 goto again
 ;==============================
@@ -422,7 +422,7 @@ Select askYesNo("Context Sensitive",strCat("Configure ",key," key?"))
 ;	  newSoundFileOverlap=askYesNo(strCat("Context Sensitive - Overlap mode ",key," key"),"Would you like the audio file to overlap previous instances of playback on key press?")
 	  newSoundFileSection=strCat("CONTEXT_SENSITIVE_config_",key,"_key")
 	  iniWritePvt(newSoundFileSection,"SoundFile",newSoundFile, soundlist )
-	  iniWritePvt(newSoundFileSection,"Resume",newSoundFileToggle, soundlist )
+	  iniWritePvt(newSoundFileSection,"Resume",newSoundFileResume, soundlist )
 	  iniWritePvt(newSoundFileSection,"Toggle",newSoundFileToggle, soundlist )
 ;	  iniWritePvt(newSoundFileSection,"Overlap",newSoundFileToggle, config )
 	  ;write some error handling if the file cannot be written.
